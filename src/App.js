@@ -11,13 +11,25 @@ import biquad, {calculateParams, calculateFrequencyResponse} from './biquad'
 
 import './App.css'
 
-const median = data => {
-  const sorted = data.concat().sort((a, b) => a - b)
-  return sorted[data.length >> 1]
+let lastStr = null
+let lastArr = null
+const extractNumbers = str => {
+  if (str !== lastStr) {
+    lastStr = str
+    lastArr = (str.match(/[+-]?([0-9]*[.])?[0-9]+/g) || []).map(Number)
+  }
+  return lastArr
 }
 
 class App extends Component {
-  state = {dataString: '', filterType: 'lpf', f0: 0.5, fs: 1, q: 0.707}
+  state = {
+    dataString: '',
+    filterType: 'lpf',
+    f0: 0.5,
+    fs: 1,
+    q: 0.707,
+    order: 2
+  }
   timeout = null
   componentDidMount() {
     if (localStorage.getItem('biquad-settings'))
@@ -38,27 +50,16 @@ class App extends Component {
   }
   render() {
     const params = calculateParams(this.state)
-
-    const rawData = (this.state.dataString.match(/\d+/g) || []).map(Number)
+    const rawData = extractNumbers(this.state.dataString)
     const biquadData = biquad(rawData, params)
+    const frequencyResponse = calculateFrequencyResponse(params).map(r => ({
+      mag: r
+    }))
 
     const lineData = rawData.map((r, i) => ({
       raw: rawData[i],
       biquad: biquadData[i]
     }))
-
-    const rawDomain = rawData.reduce(
-      ([min, max], d) => [d < min ? d : min, d > max ? d : max],
-      [rawData[0], rawData[0]]
-    )
-    const biquadMedian = median(biquadData)
-    const domainHalfWidth = (rawDomain[1] - rawDomain[0]) / 2
-    const biquadDomain = [
-      biquadMedian - domainHalfWidth,
-      biquadMedian + domainHalfWidth
-    ]
-
-    const frequencyResponse = calculateFrequencyResponse(params)
 
     return (
       <div className="App">
@@ -88,6 +89,39 @@ class App extends Component {
             </div>
           </div>
           <div className="input-group">
+            <div className="input-group-label">
+              Filter Order<span className="tooltip">
+                <span className="icon" />
+                <span className="text">
+                  Higher order filters produce sharper filters. You will as many
+                  biquad filters as half of the filter order.
+                </span>
+              </span>
+            </div>
+            <div classname="input-group-input">
+              <input
+                type="number"
+                min={2}
+                max={10}
+                step={1}
+                value={this.state.order}
+                onChange={e =>
+                  this.setState({order: parseFloat(e.target.value)})
+                }
+              />
+              <input
+                type="range"
+                min={2}
+                max={10}
+                step={1}
+                value={this.state.order}
+                onChange={e =>
+                  this.setState({order: parseFloat(e.target.value)})
+                }
+              />
+            </div>
+          </div>
+          <div className="input-group">
             <div className="input-group-label">Filter Frequency</div>
             <div classname="input-group-input">
               <input
@@ -106,7 +140,9 @@ class App extends Component {
                 step={0.001}
                 value={this.state.f0 / this.state.fs}
                 onChange={e =>
-                  this.setState({f0: e.target.value * this.state.fs})
+                  this.setState({
+                    f0: parseFloat(e.target.value) * this.state.fs
+                  })
                 }
               />
             </div>
@@ -122,14 +158,24 @@ class App extends Component {
             </div>
           </div>
           <div className="input-group">
-            <div className="input-group-label">Q</div>
+            <div className="input-group-label">
+              Q<span className="tooltip">
+                <span className="icon" />
+                <span className="text">
+                  The quality of the filter. Higher Q values give sharper
+                  filters at the cost of ringing. A Q value of 0.707 gives the
+                  sharpest filter with no ringing.
+                </span>
+              </span>
+            </div>
             <div classname="input-group-input">
               <input
                 type="number"
                 min={0}
                 max={5}
                 step={0.01}
-                value={this.state.q}
+                value={this.state.order === 2 ? this.state.q : ' '}
+                disabled={this.state.order !== 2}
                 onChange={e => this.setState({q: parseFloat(e.target.value)})}
               />
               <br />
@@ -139,27 +185,53 @@ class App extends Component {
                 max={5}
                 step={0.01}
                 value={this.state.q}
+                disabled={this.state.order !== 2}
                 onChange={e => this.setState({q: e.target.value})}
               />
             </div>
           </div>
-
           <div className="title">3. Get Coefficients</div>
           <div className="coefficients">
-            <table>
-              <tbody>
-                {'b0,b1,b2,a1,a2'.split(',').map(k => (
-                  <tr>
-                    <td>
-                      <pre>{k}</pre>
-                    </td>
-                    <td>
-                      <pre>{params[k].toFixed(4)}</pre>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {Array.isArray(params) ? (
+              params.map((p, i) => (
+                <table>
+                  <thead>
+                    <tr colspan="2">
+                      <td>
+                        <pre>Stage {i + 1}</pre>
+                      </td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {'b0,b1,b2,a1,a2'.split(',').map(k => (
+                      <tr>
+                        <td>
+                          <pre>{k}</pre>
+                        </td>
+                        <td>
+                          <pre>{p[k].toFixed(4)}</pre>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ))
+            ) : (
+              <table>
+                <tbody>
+                  {'b0,b1,b2,a1,a2'.split(',').map(k => (
+                    <tr>
+                      <td>
+                        <pre>{k}</pre>
+                      </td>
+                      <td>
+                        <pre>{params[k].toFixed(4)}</pre>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -170,18 +242,27 @@ class App extends Component {
             minWidth={400}
             minHeight={500}
           >
-            <LineChart data={lineData}>
-              <XAxis />
-              <YAxis yAxisId="left" domain={rawDomain} allowDataOverflow />
+            <LineChart
+              data={lineData}
+              margin={{top: 5, right: 30, bottom: 30, left: 30}}
+            >
+              <XAxis
+                label={{
+                  value: 'Sample Number',
+                  position: 'bottom'
+                }}
+              />
               <YAxis
-                yAxisId="right"
-                orientation="right"
-                domain={biquadDomain}
+                label={{
+                  value: 'Value',
+                  angle: -90,
+                  position: 'left'
+                }}
                 allowDataOverflow
+                tickFormatter={t => t.toPrecision(3)}
               />
               <Line
                 dataKey="raw"
-                yAxisId="left"
                 name="Input Data"
                 dot={false}
                 animationDuration={300}
@@ -190,7 +271,6 @@ class App extends Component {
               <Line
                 dataKey="biquad"
                 name="Filtered Data"
-                yAxisId="right"
                 dot={false}
                 animationDuration={300}
                 className="filtered-data-line"
@@ -204,13 +284,30 @@ class App extends Component {
             minWidth={400}
             minHeight={500}
           >
-            <LineChart data={frequencyResponse}>
-              <XAxis />
-              <YAxis yAxisId="left" domain={[-50, 'auto']} allowDataOverflow />
+            <LineChart
+              data={frequencyResponse}
+              margin={{top: 5, right: 30, bottom: 30, left: 30}}
+            >
+              <XAxis
+                tickFormatter={t => t / 300 * (this.state.fs / 2)}
+                label={{
+                  value: 'Frequency',
+                  position: 'bottom'
+                }}
+              />
+              <YAxis
+                domain={[-60, 10]}
+                ticks={[-60, -50, -40, -30, -20, -10, 0, 10]}
+                label={{
+                  value: 'Response (dB)',
+                  angle: -90,
+                  position: 'left'
+                }}
+                allowDataOverflow
+              />
               <Line
                 dataKey="mag"
-                yAxisId="left"
-                name="Magnitude"
+                name="dB"
                 dot={false}
                 animationDuration={300}
                 className="raw-data-line"

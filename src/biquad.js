@@ -1,9 +1,14 @@
+//http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
+//http://www.earlevel.com/main/2016/09/29/cascading-filters/
+//http://www.earlevel.com/main/2013/10/13/biquad-calculator-v2/
 const cos = Math.cos
 const sin = Math.sin
-const sqrt = Math.sqrt
 const pi = Math.PI
 
-export default (x, {b0, b1, b2, a1, a2}) => {
+const biquad = (x, params) => {
+  if (Array.isArray(params)) return params.reduce((out, p) => biquad(out, p), x)
+
+  const {b0, b1, b2, a1, a2} = params
   const y = new Array(x.length)
   for (let n = 0; n < x.length; n++)
     y[n] =
@@ -14,8 +19,28 @@ export default (x, {b0, b1, b2, a1, a2}) => {
       a2 * (y[n - 2] || 0)
   return y
 }
+export default biquad
 
-export const calculateParams = ({filterType, q, f0, fs}) => {
+export const calculateParams = ({filterType, q, f0, fs, order}) => {
+  if (order > 2) {
+    let qs = []
+
+    const pairs = order >> 1
+    const oddPoles = order & 1
+    const poleIncrement = pi / order
+    let startAngle = poleIncrement
+
+    if (!oddPoles) startAngle /= 2
+    else qs.push(0.5)
+
+    for (let i = 0; i < pairs; i++)
+      qs.push(1 / (2 * cos(startAngle + i * poleIncrement)))
+
+    return qs.map(calcQ =>
+      calculateParams({filterType, q: calcQ, f0, fs, order: 2})
+    )
+  }
+
   const w0 = 2 * pi * f0 / fs
   const alpha = sin(w0) / (2 * q)
   let params
@@ -91,10 +116,17 @@ export const calculateParams = ({filterType, q, f0, fs}) => {
   }
 }
 
-export const calculateFrequencyResponse = ({b0, b1, b2, a1, a2}) => {
-  const response = new Array(101)
-  for (let i = 0; i < 101; i++) {
-    const w = pi * (i / 100)
+export const calculateFrequencyResponse = params => {
+  if (Array.isArray(params))
+    return params.reduce((out, p) => {
+      const response = calculateFrequencyResponse(p)
+      return response.map((r, i) => response[i] + out[i] || 0)
+    }, [])
+
+  const {b0, b1, b2, a1, a2} = params
+  const response = new Array(301)
+  for (let i = 0; i < 301; i++) {
+    const w = pi * (i / 300)
     const phi = Math.pow(Math.sin(w / 2), 2)
     let y =
       Math.log(
@@ -108,21 +140,9 @@ export const calculateFrequencyResponse = ({b0, b1, b2, a1, a2}) => {
           16 * a2 * phi * phi
       )
     y = y * 10 / Math.LN10
-    if (y == -Infinity) y = -200
+    if (y === -Infinity) y = -200
 
-    const mag = sqrt(
-      (b0 ** 2 +
-        b1 ** 2 +
-        b2 ** 2 +
-        2 * (b0 * b1) * cos(w) +
-        2 * b0 * b2 * cos(2 * w)) /
-        (1 +
-          a1 ** 2 +
-          a2 ** 2 +
-          2 * (a1 + a1 * a2) * cos(w) +
-          2 * a2 * cos(2 * w))
-    )
-    response[i] = {mag: y}
+    response[i] = y
   }
   return response
 }

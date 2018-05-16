@@ -18,6 +18,7 @@
     rgb(114, 193, 216) 0%,
     rgb(175, 224, 190) 100%
   );
+  overflow: auto;
 }
 .page-title {
   font-size: 2.5em;
@@ -38,12 +39,15 @@ textarea {
   padding: 0.5em;
 }
 textarea {
-  height: 10em;
+  min-height: 10em;
   overflow: auto;
 }
 .title {
   margin: 2em 0 1em 0;
   font-weight: 800;
+}
+.input-group {
+  position: relative;
 }
 .input-group,
 .coefficients {
@@ -57,11 +61,44 @@ textarea {
   font-size: 0.9em;
   padding-bottom: 0.5em;
 }
+.tooltip {
+  position: relative;
+  z-index: 1;
+  float: right;
+}
+.tooltip .icon:before {
+  content: '?';
+  color: #0006;
+  background-color: #fff6;
+  border-radius: 50%;
+  width: 1em;
+  height: 1em;
+  display: flex;
+  padding: 2px;
+  justify-content: center;
+  align-items: center;
+}
+.tooltip .text {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #fffe;
+  width: 150px;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  padding: 5px;
+  font-size: 0.9em;
+}
+.tooltip:hover .text {
+  display: block;
+}
 .charts {
   padding: 2em;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 .raw-data-line path,
 .filtered-data-line path {
@@ -80,4 +117,10 @@ textarea {
 .coefficients pre {
   margin: 0;
   padding: 0;
+}
+table {
+  margin-bottom: 1em;
+}
+table:last-child {
+  margin-bottom: 0;
 }
