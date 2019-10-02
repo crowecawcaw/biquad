@@ -11,16 +11,6 @@ import biquad, {calculateParams, calculateFrequencyResponse} from './biquad'
 
 import './App.css'
 
-let lastStr = null
-let lastArr = null
-const extractNumbers = str => {
-  if (str !== lastStr) {
-    lastStr = str
-    lastArr = (str.match(/[+-]?([0-9]*[.])?[0-9]+/g) || []).map(Number)
-  }
-  return lastArr
-}
-
 class App extends Component {
   state = {
     dataString: '',
@@ -37,7 +27,7 @@ class App extends Component {
         this.setState(JSON.parse(localStorage.getItem('biquad-settings')))
       } catch (e) {}
   }
-  componentDidUpdate() {
+  componentDidUpdate(lastProps, lastState) {
     if (!this.timeout)
       this.timeout = setTimeout(() => {
         localStorage.setItem(
@@ -48,10 +38,21 @@ class App extends Component {
         this.timeout = null
       })
   }
+  generateRandomData = () => {
+    const arr = [0]
+    for (let i = 1; i < 500; i++)
+      arr.push(Math.random() * 100 - 50 + arr[i - 1])
+    this.setState({
+      dataString: arr.reduce((str, v) => `${str} ${v.toPrecision(4)}`, '')
+    })
+  }
   render() {
-    const params = calculateParams(this.state)
-    const rawData = extractNumbers(this.state.dataString)
+    const rawData = (
+      this.state.dataString.match(/[+-]?([0-9]*[.])?[0-9]+/g) || []
+    ).map(Number)
+    const params = window.biquadParams || calculateParams(this.state)
     const biquadData = biquad(rawData, params)
+
     const frequencyResponse = calculateFrequencyResponse(params).map(r => ({
       mag: r
     }))
@@ -70,10 +71,16 @@ class App extends Component {
             value={this.state.dataString}
             onChange={e => this.setState({dataString: e.target.value})}
           />
+          <div
+            className="generate-random-data"
+            onClick={this.generateRandomData}
+          >
+            Generate Random Data
+          </div>
           <div className="title">2. Configure Filter</div>
           <div className="input-group">
             <div className="input-group-label">Filter Type</div>
-            <div classname="input-group-input">
+            <div className="input-group-input">
               <select
                 value={this.state.filterType}
                 onChange={e =>
@@ -90,7 +97,8 @@ class App extends Component {
           </div>
           <div className="input-group">
             <div className="input-group-label">
-              Filter Order<span className="tooltip">
+              Filter Order
+              <span className="tooltip">
                 <span className="icon" />
                 <span className="text">
                   Higher order filters produce sharper filters. You will as many
@@ -98,7 +106,7 @@ class App extends Component {
                 </span>
               </span>
             </div>
-            <div classname="input-group-input">
+            <div className="input-group-input">
               <input
                 type="number"
                 min={2}
@@ -123,7 +131,7 @@ class App extends Component {
           </div>
           <div className="input-group">
             <div className="input-group-label">Filter Frequency</div>
-            <div classname="input-group-input">
+            <div className="input-group-input">
               <input
                 type="number"
                 min={0}
@@ -149,7 +157,7 @@ class App extends Component {
           </div>
           <div className="input-group">
             <div className="input-group-label">Sampling Frequency</div>
-            <div classname="input-group-input">
+            <div className="input-group-input">
               <input
                 type="number"
                 value={this.state.fs}
@@ -159,7 +167,8 @@ class App extends Component {
           </div>
           <div className="input-group">
             <div className="input-group-label">
-              Q<span className="tooltip">
+              Q
+              <span className="tooltip">
                 <span className="icon" />
                 <span className="text">
                   The quality of the filter. Higher Q values give sharper
@@ -168,7 +177,7 @@ class App extends Component {
                 </span>
               </span>
             </div>
-            <div classname="input-group-input">
+            <div className="input-group-input">
               <input
                 type="number"
                 min={0}
@@ -194,7 +203,7 @@ class App extends Component {
           <div className="coefficients">
             {Array.isArray(params) ? (
               params.map((p, i) => (
-                <table>
+                <table key={i}>
                   <thead>
                     <tr colspan="2">
                       <td>
@@ -204,7 +213,7 @@ class App extends Component {
                   </thead>
                   <tbody>
                     {'b0,b1,b2,a1,a2'.split(',').map(k => (
-                      <tr>
+                      <tr key={k}>
                         <td>
                           <pre>{k}</pre>
                         </td>
@@ -220,7 +229,7 @@ class App extends Component {
               <table>
                 <tbody>
                   {'b0,b1,b2,a1,a2'.split(',').map(k => (
-                    <tr>
+                    <tr key={k}>
                       <td>
                         <pre>{k}</pre>
                       </td>
@@ -236,14 +245,9 @@ class App extends Component {
         </div>
 
         <div className="charts">
-          <ResponsiveContainer
-            height={500}
-            width="100%"
-            minWidth={400}
-            minHeight={500}
-          >
+          <ResponsiveContainer height="50%" width="100%" minWidth={400}>
             <LineChart
-              data={lineData}
+              data={lineData.length ? lineData : null}
               margin={{top: 5, right: 30, bottom: 30, left: 30}}
             >
               <XAxis
@@ -260,6 +264,7 @@ class App extends Component {
                 }}
                 allowDataOverflow
                 tickFormatter={t => t.toPrecision(3)}
+                domain={['dataMin', 'dataMax']}
               />
               <Line
                 dataKey="raw"
@@ -278,18 +283,13 @@ class App extends Component {
               <Tooltip />
             </LineChart>
           </ResponsiveContainer>
-          <ResponsiveContainer
-            height={500}
-            width="100%"
-            minWidth={400}
-            minHeight={500}
-          >
+          <ResponsiveContainer height="50%" width="100%" minWidth={400}>
             <LineChart
               data={frequencyResponse}
               margin={{top: 5, right: 30, bottom: 30, left: 30}}
             >
               <XAxis
-                tickFormatter={t => t / 300 * (this.state.fs / 2)}
+                tickFormatter={t => (t / 300) * (this.state.fs / 2)}
                 label={{
                   value: 'Frequency',
                   position: 'bottom'

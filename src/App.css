@@ -41,10 +41,20 @@ textarea {
 textarea {
   min-height: 10em;
   overflow: auto;
+  margin-top: 1em;
 }
 .title {
-  margin: 2em 0 1em 0;
+  margin: 2em 0 0 0;
   font-weight: 800;
+}
+.generate-random-data {
+  cursor: pointer;
+  margin-left: 0.5em;
+  font-size: 0.8em;
+  opacity: 0.5;
+}
+.generate-random-data:hover {
+  opacity: 1;
 }
 .input-group {
   position: relative;
@@ -54,7 +64,7 @@ textarea {
   border: 2px solid #fff3;
   border-radius: 3px;
   padding: 0.5em;
-  margin: 1em 0 0 0;
+  margin-top: 1em;
   background-color: #fff3;
 }
 .input-group-label {

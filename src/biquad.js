@@ -5,19 +5,18 @@ const cos = Math.cos
 const sin = Math.sin
 const pi = Math.PI
 
-const biquad = (x, params) => {
-  if (Array.isArray(params)) return params.reduce((out, p) => biquad(out, p), x)
+const biquad = (data, params) => {
+  if (Array.isArray(params))
+    return params.reduce((out, p) => biquad(out, p), data)
 
   const {b0, b1, b2, a1, a2} = params
-  const y = new Array(x.length)
-  for (let n = 0; n < x.length; n++)
+  const pre = [data[0], data[0]]
+  const x = pre.concat(data)
+  const y = pre.concat(new Array(data.length))
+  for (let n = 2; n < x.length; n++)
     y[n] =
-      b0 * x[n] +
-      b1 * (x[n - 1] || 0) +
-      b2 * (x[n - 2] || 0) -
-      a1 * (y[n - 1] || 0) -
-      a2 * (y[n - 2] || 0)
-  return y
+      b0 * x[n] + b1 * x[n - 1] + b2 * x[n - 2] - a1 * y[n - 1] - a2 * y[n - 2]
+  return y.slice(pre.length)
 }
 export default biquad
 
